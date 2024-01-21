@@ -13,7 +13,10 @@ console.log('db connected');
 
 //use cors to allow cross origin resource sharing
 app.use(
-  cors()
+  cors({
+    origin: "https://url-server-kvn2.onrender.com",
+    credentials: true,
+  })
 );
 
 app.use(express.urlencoded({ extended: false }));
