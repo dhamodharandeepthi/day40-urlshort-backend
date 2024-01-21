@@ -1,96 +1,50 @@
-const express = require("express");
-const cors = require("cors");
+import express from "express";
+import mongoose from "mongoose";
+import shortUrl from "./model/shortStore.js";
+import cors from "cors";
 
 const app = express();
-const urlModel = require("./models/URL");
-const shortId = require("shortid");
 
-var validUrl = require("valid-url");
-
-require("dotenv").config();
-
-const mongodb_user = process.env.DB_USER;
-const mongodb_password = process.env.DB_PASSWORD;
-const PORT = process.env.PORT;
-
-console.log("mongodb_user: " + mongodb_user);
-console.log("mongodb_password: " + mongodb_password);
-
-const mongoose = require("mongoose");
 mongoose.connect(
-  `mongodb+srv://${mongodb_user}:${mongodb_password}@cluster0.h8brfdx.mongodb.net/`
+  "mongodb+srv://rdhamodharan22:dksudeepthi27@cluster0.h8brfdx.mongodb.net/shorturl"
 );
-console.log("DB connected");
 
+console.log('db connected');
+
+//use cors to allow cross origin resource sharing
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(cors());
 
-app.post("/generate", async (req, res) => {
-  var url = req.body.originalUrl;
-  var urlId = "";
-  valid = validUrl.isUri(url);
-  console.log(valid);
+app.get("/", (req, res) => {
+  res.send("Hello There!");
+});
 
-  if (valid != undefined) {
-    try {
-      urlId = shortId.generate();
-      res.send(urlId);
-    } catch (err) {
-      console.log("err" + err);
-    }
+app.post("/short", async (req, res) => {
+  const found = await shortUrl.find({ full: req.body.full });
+  if (found.length > 0) {
+    res.send(found);
   } else {
-    res.send("false");
-    return;
+    await shortUrl.create({ full: req.body.full });
+    const foundNow = await shortUrl.find({ full: req.body.full });
+    res.send(foundNow);
   }
 });
 
-app.post(`/insert`, async (req, res) => {
-  await urlModel.create({
-    originalUrl: req.body.originalUrl,
-    shortUrl: req.body.shortUrl,
-  });
-
-  try {
-    await urlModel.save();
-    console.log("saved to db");
-    res.redirect("/");
-  } catch (err) {
-    console.log(err);
-    res.redirect("/");
-  }
+app.get("/:shortUrl", async (req, res) => {
+  const short = await shortUrl.findOne({ short: req.params.shortUrl });
+  if (short == null) return res.sendStatus(404);
+  res.redirect(`${short.full}`);
 });
 
-app.get("/read", async (req, res) => {
-  urlModel.find({}, (err, result) => {
-    if (err) {
-      res.send(err);
-    } else {
-      res.send(result);
-    }
-  });
-});
+let PORT = process.env.PORT || 5000;
 
-app.get("/:route", async (req, res) => {
-  try {
-    const url = await urlModel.findOne({ shortUrl: req.params.route });
-    if (url) {
-      url.clicks++;
-      url.save();
-      return res.redirect(url.originalUrl);
-    } else {
-      return res.status(404).json("No url found");
-    }
-  } catch (err) {
-    console.log(err);
-    res.status(500).json("Server error");
-  }
-});
-
-app.delete("/delete/:id", async (req, res) => {
-  const id = req.params.id;
-  await urlModel.findByIdAndRemove(id).exec();
-});
-
-app.listen(PORT, () => {
-  console.log(`server running on port ${PORT}`);
+app.listen(PORT, function () {
+  console.log("Server started successfully on port: ", PORT);
 });
